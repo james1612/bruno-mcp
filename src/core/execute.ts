@@ -118,6 +118,11 @@ const formatRunFailure = (
     : `bru exited with code ${exitCode} without producing a report`;
 };
 
+const diagnosticsOf = (stderr: string, parseError: string | null) => ({
+  reportParseError: parseError || null,
+  stderr: stderr && stderr.trim() ? stderr.trim() : null
+});
+
 interface RawRunResult {
   exitCode: number | null;
   report: any;
@@ -197,7 +202,7 @@ const sumSummaries = (iterations: any[]): Record<string, number> => {
 };
 
 export const formatRunResult = (
-  { exitCode, report, stderr, stdout, reportParseError }: RawRunResult,
+  { exitCode, report, stderr, parseError }: RawRunResult,
   format: CollectionFormat | null,
   durationMs: number
 ) => {
@@ -205,7 +210,7 @@ export const formatRunResult = (
   const multiIteration = iterations.length > 1;
   const totals = sumSummaries(iterations);
   const ran = (totals.totalRequests || 0) > 0;
-  const diagnostics = diagnosticsOf(stderr, stdout, reportParseError);
+  const diagnostics = diagnosticsOf(stderr, parseError);
 
   const requests = iterations.flatMap((iteration) =>
     (Array.isArray(iteration?.results) ? iteration.results : []).map((entry: any) => {
@@ -251,7 +256,6 @@ interface RunBruArgs {
   paths: string[];
   options?: CollectionRunOptions;
   extraArgs?: string[];
-  verbose?: boolean;
   timeoutMs?: number;
 }
 
@@ -329,14 +333,12 @@ interface RunCollectionArgs extends CollectionRunOptions {
   collectionPath: string;
   /** Request files and/or folders relative to the collection; empty runs the whole collection. */
   paths?: string[];
-  verbose?: boolean;
   timeoutMs?: number;
 }
 
 export const runCollection = async ({
   collectionPath,
   paths = [],
-  verbose = false,
   timeoutMs = COLLECTION_TIMEOUT_MS,
   ...options
 }: RunCollectionArgs) => {
@@ -347,7 +349,6 @@ export const runCollection = async ({
     options,
     // The roll-up never returns headers or bodies, so keep them out of the report file too.
     extraArgs: ['-r', '--reporter-skip-body', '--reporter-skip-all-headers'],
-    verbose,
     timeoutMs
   });
   return formatRunResult(raw, detectFormat(collectionPath), Date.now() - startedAt);
